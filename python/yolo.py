@@ -55,6 +55,7 @@ def wrap_detection(input_image, output_data):
     for r in range(rows):
         row = output_data[r]
         confidence = row[4]
+        # Confidence = Wahrscheinlichkeit
         if confidence >= 0.4:
 
             classes_scores = row[5:]
@@ -117,7 +118,7 @@ while True:
     
     # Region Of Interest
     # frame=frame[y1:y2,x1:x2]
-    frame=frame[120:200,0:640]
+    frame=frame[120:205,0:640]
 
     inputImage = format_yolov5(frame)
     outs = detect(inputImage, net)
@@ -127,11 +128,34 @@ while True:
     frame_count += 1
     total_frames += 1
 
+    # Auto Slots definieren
+    # y ist immer gleich (alle in einer Reihe) --> nur x Koordinaten vergleichen
+    # slot = [x1, x2]
+    slot1 = [0, 80]
+    slot2 = [50, 130]
+    slot3 = [130, 250]
+    slot4 = [210, 330]
+    slot5 = [310, 410]
+    slot6 = [370, 510]
+    slot7 = [460, 580]
+    slot8 = [520, 640]
+    slotList = [slot1, slot2, slot3, slot4, slot5, slot6, slot7, slot8]
+
     for (classid, confidence, box) in zip(class_ids, confidences, boxes):
          color = colors[int(classid) % len(colors)]
+         # box[0] = x1, box[1] = y1, box[2] = width, box[3] = height
          cv2.rectangle(frame, box, color, 2)
          cv2.rectangle(frame, (box[0], box[1] - 20), (box[0] + box[2], box[1]), color, -1)
          cv2.putText(frame, class_list[classid], (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0))
+         #print("x1:" + str(box[0]) + " x2:" + str(box[0]+box[2]))
+         #print("y1:" + str(box[1]) + " y2:" + str(box[1]+box[3]))
+         
+         # Wenn Auto detektiert:
+         if(class_list[classid] == "car" or "truck" or "bus"):
+            for i in range(len(slotList)):
+                if(slotList[i][0] < box[0] & box[0]+box[2] < slotList[i][1]):
+                    print("Auto in Slot " + str(i+1) + " detektiert!")
+                    print("-----------")
 
     if frame_count >= 30:
         end = time.time_ns()
@@ -147,7 +171,9 @@ while True:
 
     # waitKey 1000ms = 1s damit fps runter geht --> CPU Auslastung von 90% auf 30%
     if cv2.waitKey(1000) > -1:
+        print("-----")
         print("finished by user")
         break
+    print("-----")
 
 print("Total frames: " + str(total_frames))
