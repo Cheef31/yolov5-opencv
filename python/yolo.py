@@ -109,9 +109,31 @@ frame_count = 0
 total_frames = 0
 fps = -1
 
-#Parking Slots Array
+# Parking Slots Array
 slots = [0] * 8
 slotsCounter = [0] * 8
+
+# Auto Slot Koordinaten definieren
+# y ist immer gleich (alle in einer Reihe) --> nur x Koordinaten vergleichen
+# slotCoord = [x1, x2]
+slotCoord1 = [-10, 75]
+slotCoord2 = [40, 165]
+slotCoord3 = [130, 250]
+slotCoord4 = [220, 330]
+slotCoord5 = [300, 410]
+slotCoord6 = [400, 510]
+slotCoord7 = [470, 610]
+slotCoord8 = [570, 650]
+slotCoords = [slotCoord1, slotCoord2, slotCoord3, slotCoord4, slotCoord5, slotCoord6, slotCoord7, slotCoord8]
+
+# Mauszeiger Position ausgeben
+def printMousePos(event, x, y, flags, param):
+    if event == cv2.EVENT_LBUTTONDOWN:
+        print('Mausklick bei ({}, {})'.format(x, y))
+
+# Sekunden pro Frame
+sPF = 2
+calcedFPS = 1/sPF
 
 while True:
 
@@ -122,7 +144,7 @@ while True:
     
     # Region Of Interest
     # frame=frame[y1:y2,x1:x2]
-    frame=frame[120:200,0:640]
+    frame=frame[120:190,0:640]
 
     inputImage = format_yolov5(frame)
     outs = detect(inputImage, net)
@@ -132,44 +154,30 @@ while True:
     frame_count += 1
     total_frames += 1
 
-    # Auto Slots definieren
-    # y ist immer gleich (alle in einer Reihe) --> nur x Koordinaten vergleichen
-    # slotCoord = [x1, x2]
-    slotCoord1 = [-10, 70]
-    slotCoord2 = [40, 160]
-    slotCoord3 = [130, 250]
-    slotCoord4 = [200, 320]
-    # slotCoord5 -> wird kaum erkannt durch die pflanze
-    slotCoord5 = [310, 410]
-    slotCoord6 = [410, 510]
-    slotCoord7 = [490, 610]
-    slotCoord8 = [570, 650]
-    slotCoords = [slotCoord1, slotCoord2, slotCoord3, slotCoord4, slotCoord5, slotCoord6, slotCoord7, slotCoord8]
-
     for (classid, confidence, box) in zip(class_ids, confidences, boxes):
          color = colors[int(classid) % len(colors)]
          # box[0] = x1, box[1] = y1, box[2] = width, box[3] = height
          cv2.rectangle(frame, box, color, 2)
          cv2.rectangle(frame, (box[0], box[1] - 20), (box[0] + box[2], box[1]), color, -1)
          cv2.putText(frame, class_list[classid], (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0))
-         for i in range(len(box)):
-            #print("---------------------------------")
-            #print("Box Nr." + str(i))
-            #print("x1:" + str(box[0]) + " x2:" + str(box[0]+box[2]))
-            #print("y1:" + str(box[1]) + " y2:" + str(box[1]+box[3]))
-            # Wenn Auto detektiert:
-            for i in range(len(slotCoords)):
-                if(slotCoords[i][0] <= box[0] and box[0]+box[2] <= slotCoords[i][1]):
-                    print("Auto in Slot " + str(i+1) + " detektiert!")
-                    slotsCounter[i] = slotsCounter[i] + 1
-                    if (slotsCounter[i] < 10):
-                        slotsCounter[i] = slotsCounter[i] + 1
-                if(slotsCounter[i]>0):
-                    slotsCounter[i] -= 1
-                if(slotsCounter[i]==0):
-                    slots[i]=0
-                if(slotsCounter[i]==10):
-                    slots[i]=1
+         for i in range(len(slotCoords)):
+            # Box des erkannten Objekt muss zwischen den entsprechenden Slot Koordinaten liegen und 
+            # Breite (box[2]) muss größer als 40 sein (um kleine Objekte von weiter weg rauszufiltern)
+            if(slotCoords[i][0] <= box[0] and box[0]+box[2] <= slotCoords[i][1] and box[2] > 50):
+                #print("Auto in Slot " + str(i+1) + " detektiert!")
+                # Pro besetztem Slot 20 Puffer addieren
+                if (slotsCounter[i] < 100):
+                    slotsCounter[i] = slotsCounter[i] + 20
+    
+    # automatisch 8 Puffer abziehen von jedem Slot
+    # danach direkt prüfen wieviel Puffer pro Slot da ist
+    for i in range(len(slotsCounter)):
+        if(slotsCounter[i]>0):
+            slotsCounter[i] = slotsCounter[i] - 8
+        if(slotsCounter[i]<10):
+            slots[i]=0
+        if(slotsCounter[i]>=50):
+            slots[i]=1
 
     if frame_count >= 30:
         end = time.time_ns()
@@ -181,11 +189,17 @@ while True:
         fps_label = "FPS: %.2f" % fps
         cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+
     cv2.imshow("output", frame)
+    
+    # Auf Mausevents horchen
+    cv2.setMouseCallback("output", printMousePos)
+    
     print("Parking Slots Belegung - 0 = frei, 1 = belegt \n",slotsCounter,"\n",slots)
 
+
     # waitKey 1000ms = 1s damit fps runter geht --> CPU Auslastung von 90% auf 30%
-    if cv2.waitKey(2000) > -1:
+    if cv2.waitKey(sPF*1000) > -1:
         print("-----")
         print("finished by user")
         break
