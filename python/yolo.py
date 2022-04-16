@@ -2,6 +2,9 @@ import cv2
 import time
 import sys
 import numpy as np
+from pushsafer import Client
+
+client = Client("6LkoMFc8uZc88t3wCIhH")
 
 def build_model(is_cuda):
     net = cv2.dnn.readNet("config_files/yolov5s.onnx")
@@ -176,6 +179,8 @@ while True:
                 slotsCounter[i] = slotsCounter[i] - 8
             if(slotsCounter[i]<10):
                 slots[i]=0
+                #resp = client.send_message("Slot " + str(i) + " ist frei geworden.", "Slot " + str(i) + " ist frei", "39569", "1", "4", "2")
+                #print(resp)
             if(slotsCounter[i]>=50):
                 slots[i]=1
 
