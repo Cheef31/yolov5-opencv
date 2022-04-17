@@ -221,7 +221,7 @@ while True:
         # Für WP API
         post = {
             'date': str(datetime.now() - timedelta(hours=2)),
-            'title': 'Parkplätze aktuell - ' + str(datetime.now().strftime("%H:%M:%S")),
+            'title': 'Parkplätze (' + str(datetime.now().strftime("%H:%M:%S") + ' Uhr)'),
             'content': content,
             'status': 'publish'
         }
