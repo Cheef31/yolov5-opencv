@@ -4,6 +4,8 @@ import base64
 
 url = 'https://hotel-infos.online/wp-json/wp/v2'
 
+print(requests.get(url + '/posts').json())
+
 user = "Waleed499"
 password = "9cWz IlHt qMtV XK6b sOQ8 Q38L"
 
@@ -20,5 +22,5 @@ post = {
     'status': 'publish'
 }
 
-r = requests.post(url + '/posts', headers=header, json=post)
-print(r.json())
+#r = requests.post(url + '/posts', headers=header, json=post)
+#print(r.json())

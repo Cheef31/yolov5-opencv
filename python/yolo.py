@@ -3,8 +3,20 @@ import time
 import sys
 import numpy as np
 from pushsafer import Client
+from datetime import datetime, timedelta
+import requests
+import base64
 
+# Für Pushsafer
 client = Client("6LkoMFc8uZc88t3wCIhH")
+
+# Für WP API
+url = 'https://hotel-infos.online/wp-json/wp/v2'
+user = "Waleed499"
+password = "9cWz IlHt qMtV XK6b sOQ8 Q38L"
+creds = user + ':' + password
+token = base64.b64encode(creds.encode())
+header = {'Authorization': 'Basic ' + token.decode('utf-8')}
 
 def build_model(is_cuda):
     net = cv2.dnn.readNet("config_files/yolov5s.onnx")
@@ -144,65 +156,77 @@ while True:
         print("End of stream")
         break
 
-    if ret is True:
-        # Region Of Interest
-        # frame=frame[y1:y2,x1:x2]
-        frame=frame[500:680,30:1110]
+    # Region Of Interest
+    # frame=frame[y1:y2,x1:x2]
+    frame=frame[500:680,30:1110]
 
-        inputImage = format_yolov5(frame)
-        outs = detect(inputImage, net)
+    inputImage = format_yolov5(frame)
+    outs = detect(inputImage, net)
 
-        class_ids, confidences, boxes = wrap_detection(inputImage, outs[0])
+    class_ids, confidences, boxes = wrap_detection(inputImage, outs[0])
 
-        frame_count += 1
-        total_frames += 1
+    frame_count += 1
+    total_frames += 1
 
-        for (classid, confidence, box) in zip(class_ids, confidences, boxes):
-            color = colors[int(classid) % len(colors)]
-            # box[0] = x1, box[1] = y1, box[2] = width, box[3] = height
-            cv2.rectangle(frame, box, color, 2)
-            cv2.rectangle(frame, (box[0], box[1] - 20), (box[0] + box[2], box[1]), color, -1)
-            cv2.putText(frame, class_list[classid], (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0))
-            for i in range(len(slotCoords)):
-                # Box des erkannten Objekt muss zwischen den entsprechenden Slot Koordinaten liegen und 
-                # Breite (box[2]) muss größer als 40 sein (um kleine Objekte von weiter weg rauszufiltern)
-                if(slotCoords[i][0] <= box[0] and box[0]+box[2] <= slotCoords[i][1] and box[2] > 30):
-                    #print("Auto in Slot " + str(i+1) + " detektiert!")
-                    # Pro besetztem Slot 20 Puffer addieren
-                    if (slotsCounter[i] < 100):
-                        slotsCounter[i] = slotsCounter[i] + 20
-        
-        # automatisch 8 Puffer abziehen von jedem Slot
-        # danach direkt prüfen wieviel Puffer pro Slot da ist
-        for i in range(len(slotsCounter)):
-            if(slotsCounter[i]>0):
-                slotsCounter[i] = slotsCounter[i] - 8
-            if(slotsCounter[i]<10):
-                slots[i]=0
-                #resp = client.send_message("Slot " + str(i) + " ist frei geworden.", "Slot " + str(i) + " ist frei", "39569", "1", "4", "2")
-                #print(resp)
-            if(slotsCounter[i]>=50):
-                slots[i]=1
+    for (classid, confidence, box) in zip(class_ids, confidences, boxes):
+        color = colors[int(classid) % len(colors)]
+        # box[0] = x1, box[1] = y1, box[2] = width, box[3] = height
+        cv2.rectangle(frame, box, color, 2)
+        cv2.rectangle(frame, (box[0], box[1] - 20), (box[0] + box[2], box[1]), color, -1)
+        cv2.putText(frame, class_list[classid], (box[0], box[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,0))
+        for i in range(len(slotCoords)):
+            # Box des erkannten Objekt muss zwischen den entsprechenden Slot Koordinaten liegen und 
+            # Breite (box[2]) muss größer als 40 sein (um kleine Objekte von weiter weg rauszufiltern)
+            if(slotCoords[i][0] <= box[0] and box[0]+box[2] <= slotCoords[i][1] and box[2] > 30):
+                #print("Auto in Slot " + str(i+1) + " detektiert!")
+                # Pro besetztem Slot 20 Puffer addieren
+                if (slotsCounter[i] < 100):
+                    slotsCounter[i] = slotsCounter[i] + 20
+    
+    # automatisch 8 Puffer abziehen von jedem Slot
+    # danach direkt prüfen wieviel Puffer pro Slot da ist
+    for i in range(len(slotsCounter)):
+        if(slotsCounter[i]>0):
+            slotsCounter[i] = slotsCounter[i] - 8
+        if(slotsCounter[i]<10):
+            slots[i]=0
+            #resp = client.send_message("Slot " + str(i) + " ist frei geworden.", "Slot " + str(i) + " ist frei", "39569", "1", "4", "2")
+            #print(resp)
+        if(slotsCounter[i]>=50):
+            slots[i]=1
 
-        if frame_count >= 30:
-            end = time.time_ns()
-            fps = 1000000000 * frame_count / (end - start)
-            frame_count = 0
-            start = time.time_ns()
-        
-        if fps > 0:
-            fps_label = "FPS: %.2f" % fps
-            cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    if frame_count >= 30:
+        end = time.time_ns()
+        fps = 1000000000 * frame_count / (end - start)
+        frame_count = 0
+        start = time.time_ns()
+    
+    if fps > 0:
+        fps_label = "FPS: %.2f" % fps
+        cv2.putText(frame, fps_label, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
 
-        cv2.imshow("output", frame)
-        
-        # Auf Mausevents horchen
-        cv2.setMouseCallback("output", printMousePos)
-        
-        print("Parking Slots Belegung - 0 = frei, 1 = belegt \n",slotsCounter,"\n",slots)
+    cv2.imshow("output", frame)
+    
+    # Auf Mausevents horchen
+    cv2.setMouseCallback("output", printMousePos)
+    
+    print("Parking Slots Belegung - 0 = frei, 1 = belegt \n",slotsCounter,"\n",slots)
 
     capture.release()
+
+    # Alle 5 Frames -> Update auf WP
+    if frame_count%5 == 0:
+        content = ' | '.join(map(str, slots))
+        # Für WP API
+        post = {
+            'date': str(datetime.now() - timedelta(hours=2)),
+            'title': 'Parkplätze aktuell - ' + str(datetime.now().strftime("%H:%M:%S")),
+            'content': content,
+            'status': 'publish'
+        }
+        r = requests.post(url + '/posts/185/', headers=header, json=post)
+        print(r)
     
     # waitKey 1000ms = 1s damit fps runter geht --> CPU Auslastung von 90% auf 30%
     if cv2.waitKey(sPF*1000) > -1:
